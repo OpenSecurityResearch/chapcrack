@@ -24,6 +24,21 @@ def checkKey(plaintext, ciphertext, b1, b2):
     if result == ciphertext:
         return keyCandidateBytes
 
+#
+# This is a dirty work around for <Python 2.7
+# otherwise functools.partial will have a problem
+# on BT5R2
+# - brad antoniewicz
+
+class workaround(object):
+        def __init__(self, pt, ct, b1):
+                self.plain = pt
+                self.cipher = ct
+                self.b  = b1
+        def __call__(self, guess):
+                checkKey(self.plain, self.cipher, self.b, guess)
+
+
 class K3Cracker:
 
     def crack(self, plaintext, ciphertext, markTime=False):
@@ -34,8 +49,9 @@ class K3Cracker:
                 sys.stdout.write(".")
                 sys.stdout.flush()
 
-            partial = functools.partial(checkKey, plaintext, ciphertext, b1)
-            results = pool.map(partial, range(0, 256))
+            # partial = functools.partial(checkKey, plaintext, ciphertext, b1)
+            # results = pool.map(partial, range(0, 256))
+	    results = pool.map(workaround(plaintext, ciphertext, b1), range(0,256))
 
             for result in results:
                 if result is not None:
