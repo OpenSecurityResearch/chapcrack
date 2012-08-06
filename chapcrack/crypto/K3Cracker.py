@@ -29,7 +29,9 @@ class checkKeyPartial(object):
                 self.ciphertext = ciphertext
                 self.b1  = b1
         def __call__(self, b2):
-                checkKey(self.plaintext, self.ciphertext, self.b1, b2)
+		self.results = checkKey(self.plaintext, self.ciphertext, self.b1, b2)
+		if self.results is not None:
+			return self.results
 
 
 class K3Cracker:
