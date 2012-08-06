@@ -21,7 +21,7 @@ __copyright__ = "Copyright 2012, Moxie Marlinspike"
 class ParseCommand(Command):
 
     def __init__(self, argv):
-        Command.__init__(self, argv, "i", "n")
+        Command.__init__(self, argv, "i:C:R", "n")
 
     def printHelp(self):
         print(
@@ -32,37 +32,66 @@ class ParseCommand(Command):
             Arguments:
               -i <input> : The capture file
               -n         : If specified, doesn't crack K3
+              -C         : Challenge in XX:XX..:XX format
+              -R         : Response in XX:XX..:XX format
+
             """)
 
     def execute(self):
-        inputFile  = self._getInputFile()
-        handshakes = MultiChapStateManager()
-        capture    = open(inputFile)
-        reader     = ChapPacketReader(capture)
+	
+	# For LEAP and MSCHAPv2 (from FreeRADIUS-WPE) - you can provide challenge 
+	# (which is really the ChallengeHash) via the command line in XX:XX:XX... format.
+	# There is likely a prettier way to do this, but this should work
+	# 
+	if self._checkForChalResp():
+			
+                plaintext = self._getCmdChal()
+                resp = self._getCmdResp()
 
-        for packet in reader:
-            handshakes.addHandshakePacket(packet)
+		c1, c2, c3 = resp[0:8], resp[8:16], resp[16:24]
 
-        complete = handshakes.getCompletedHandshakes()
+		k3 = self._getK3(plaintext, c3)
 
-        for server in complete:
-            for client in complete[server]:
-                print "Got completed handshake [%s --> %s]" % (client, server)
+		print "                     C1 = %s" % c1.encode("hex")
+		print "                     C2 = %s" % c2.encode("hex")
+		print "                     C3 = %s" % c3.encode("hex")
+		print "                      P = %s" % plaintext.encode("hex")
 
-                c1, c2, c3 = complete[server][client].getCiphertext()
-                plaintext  = complete[server][client].getPlaintext()
-                username   = complete[server][client].getUserName()
-                k3         = self._getK3(plaintext, c3)
 
-                print "                   User = %s" % username
-                print "                     C1 = %s" % c1.encode("hex")
-                print "                     C2 = %s" % c2.encode("hex")
-                print "                     C3 = %s" % c3.encode("hex")
-                print "                      P = %s" % plaintext.encode("hex")
+		if k3 is not None:
+			print "                     K3 = %s" % k3.encode("hex")
+			print "CloudCracker Submission = $99$%s" % base64.b64encode("%s%s%s%s" % (plaintext, c1, c2, k3[0:2]))
+		
+		
+	else: # Operate Normally...
+	        inputFile  = self._getInputFile()
+	        handshakes = MultiChapStateManager()
+	        capture    = open(inputFile)
+	        reader     = ChapPacketReader(capture)
 
-                if k3 is not None:
-                    print "                     K3 = %s" % k3.encode("hex")
-                    print "CloudCracker Submission = $99$%s" % base64.b64encode("%s%s%s%s" % (plaintext, c1, c2, k3[0:2]))
+        	for packet in reader:
+	            handshakes.addHandshakePacket(packet)
+
+	        complete = handshakes.getCompletedHandshakes()
+	
+	        for server in complete:
+	            for client in complete[server]:
+	                print "Got completed handshake [%s --> %s]" % (client, server)
+
+	                c1, c2, c3 = complete[server][client].getCiphertext()
+	                plaintext  = complete[server][client].getPlaintext()
+	                username   = complete[server][client].getUserName()
+	                k3         = self._getK3(plaintext, c3)
+
+	                print "                   User = %s" % username
+	                print "                     C1 = %s" % c1.encode("hex")
+	                print "                     C2 = %s" % c2.encode("hex")
+	                print "                     C3 = %s" % c3.encode("hex")
+	                print "                      P = %s" % plaintext.encode("hex")
+
+	                if k3 is not None:
+	                    print "                     K3 = %s" % k3.encode("hex")
+	                    print "CloudCracker Submission = $99$%s" % base64.b64encode("%s%s%s%s" % (plaintext, c1, c2, k3[0:2]))
 
     def _getK3(self, plaintext, ciphertext):
         if not self._containsOption("-n"):

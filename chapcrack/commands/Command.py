@@ -2,6 +2,7 @@
 
 import getopt
 import sys
+import binascii
 
 __author__    = "Moxie Marlinspike"
 __license__   = "GPLv3"
@@ -39,6 +40,32 @@ class Command:
             self.printError("Missing input file (-i)")
 
         return inputFile
+
+    def _checkForChalResp(self):
+        if self._containsOption("-C") and self._containsOption("-R"):
+                return True
+        return None
+
+
+    def _getCmdChal(self):
+        if not self._checkForChalResp:
+                self.printError("No Challenge or Response Specificed!")
+
+        cmdline_chal = self._getOptionValue("-C")
+        if len(cmdline_chal) != 23:
+                self.printError("Invalid Challenge Length")
+        return binascii.unhexlify(cmdline_chal.replace(":", ""))
+
+    def _getCmdResp(self):
+        if not self._checkForChalResp:
+                self.printError("No Challenge or Response Specificed!")
+
+        cmdline_resp = self._getOptionValue("-R")
+
+        if len(cmdline_resp) != 71:
+                self.printError("Invalid Response Length")
+        return binascii.unhexlify(cmdline_resp.replace(":",""))
+
 
     def printError(self, error):
         sys.stderr.write("ERROR: %s\n" % error)
